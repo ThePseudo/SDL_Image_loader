@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 
 App *App::app = nullptr;
 
@@ -50,16 +51,13 @@ App *App::getApp(const char *nomeFile)
 
 void App::initSDL()
 {
-	int dimx, dimy;
-
 	assert(SDL_Init(SDL_INIT_VIDEO) == 0 && SDL_GetError());
 	int flags = IMG_INIT_JPG | IMG_INIT_PNG | IMG_INIT_TIF | IMG_INIT_WEBP;
 	assert(IMG_Init(flags) & flags);
 	assert(SDL_GetCurrentDisplayMode(0, &displayMode) == 0 && SDL_GetError());
-
-	readSettings(&dimx, &dimy);
 	win = SDL_CreateWindow("Image viewer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-		dimx, dimy, SDL_WINDOW_RESIZABLE);
+		800, 600, SDL_WINDOW_RESIZABLE);
+	readSettings();
 	rend = SDL_CreateRenderer(win, 0, SDL_RENDERER_ACCELERATED);
 }
 
@@ -109,6 +107,7 @@ void App::onResize()
 {
 	bool mustWrite = true;
 	SDL_Surface *screenSurface = SDL_GetWindowSurface(win);
+	oldRect = screenRect;
 	SDL_GetClipRect(screenSurface, &screenRect);
 	float proportion;
 	for (int i = 0; i > -20; --i) {
@@ -121,14 +120,12 @@ void App::onResize()
 	}
 	zoomFactor = minZoomFactor;
 	centerToScreen();
-	if (screenRect.x + screenRect.w >= displayMode.w || screenRect.y + screenRect.h >= displayMode.h) {
-		mustWrite = false;
-	}
-	if (mustWrite) {
-		writeSettings(screenRect.w, screenRect.h);
-	}
+	writeSettings(false);
 #ifdef _DEBUG
+	cout << oldRect.w << " - " << oldRect.h << endl;
 	cout << screenRect.w << " - " << screenRect.h << endl;
+	cout << ((SDL_GetWindowFlags(win) & SDL_WINDOW_MAXIMIZED) ? "Maximized": "Windowed");
+	cout << endl;
 #endif // _DEBUG
 
 	somethingChanged = true;
@@ -186,28 +183,43 @@ void App::onMouseWheel(SDL_Event *e)
 	somethingChanged = true;
 }
 
-void App::writeSettings(int w, int h)
+void App::writeSettings(bool reset)
 {
 	string settingsPath = this->appPath + "settings.ini";
 	ofstream settingsO(settingsPath.c_str(), ios::out);
-	settingsO << w << " " << h;
+	if (reset) {
+		settingsO << "800 600\nwindowed" << endl;
+	}
+	else {
+		if ((SDL_GetWindowFlags(win) & SDL_WINDOW_MAXIMIZED) == 0) {
+			settingsO << screenRect.w << " " << screenRect.h << endl << "windowed" << endl;
+		}
+		else {
+			settingsO  << oldRect.w << " " << oldRect.h << endl << "maximized" << endl;
+		}
+	}
+	settingsO.close();
 }
 
-void App::readSettings(int *w, int *h)
+void App::readSettings()
 {
 	int x = 800, y = 600;
 	getResourcePath();
 	string settingsPath = this->appPath + "settings.ini";
 	ifstream settings(settingsPath.c_str(), ios::in);
 	if (!settings) {
-		writeSettings(800, 600);
+		writeSettings(true);
 		settings.close();
 		settings.open("settings.ini", ios::in);
 	}
-	settings >> x >> y;
+	string maximized;
+	settings >> x >> y >> maximized;
 	settings.close();
-	*w = x;
-	*h = y;
+
+	SDL_SetWindowSize(win, x, y);
+	if (maximized == "maximized") {
+		SDL_MaximizeWindow(win);
+	}
 }
 
 void App::detectFiles()
@@ -322,6 +334,7 @@ int App::run()
 			SDL_RenderCopy(rend, image, nullptr, &imageRect);
 			SDL_RenderPresent(rend);
 			somethingChanged = false;
+			SDL_Delay(1);
 		}
 		else {
 			/*Since the SDL_PollEvent is an implementation of the Windows 

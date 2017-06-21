@@ -41,8 +41,8 @@ private:
 	void onMouseMove(const SDL_Event *e);
 	void fitToScreen();
 	void onMouseWheel(SDL_Event *e);
-	void writeSettings(const int w, const int h);
-	void readSettings(int *w, int *y);
+	void writeSettings(const bool reset);
+	void readSettings();
 	//utils
 	string lowerString(string s);
 	void getResourcePath(const string &subDir = "");
@@ -69,6 +69,7 @@ private:
 	SDL_Rect imageRect;
 	SDL_Rect originalRect;
 	SDL_Rect screenRect;
+	SDL_Rect oldRect;
 	int zoomFactor = 0;
 	int resizeFactor;
 	int minZoomFactor;
