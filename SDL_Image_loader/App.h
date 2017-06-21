@@ -11,11 +11,6 @@
 #define SEPARATOR '/'
 #endif
 
-enum Icons {
-	fit_to_screen,
-	unvalid
-};
-
 using namespace std::experimental::filesystem;
 using namespace std;
 
@@ -70,6 +65,7 @@ private:
 	SDL_Window *win;
 	SDL_Renderer *rend;
 	SDL_Texture *image;
+	SDL_DisplayMode displayMode;
 	SDL_Rect imageRect;
 	SDL_Rect originalRect;
 	SDL_Rect screenRect;

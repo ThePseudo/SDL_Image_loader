@@ -31,7 +31,6 @@ int main(int argc, char *argv[])
 App::App(const char *nomeFile)
 {
 	initSDL();
-	onResize();
 	setDirectory(nomeFile);
 	loadImage();
 }
@@ -56,9 +55,9 @@ void App::initSDL()
 	assert(SDL_Init(SDL_INIT_VIDEO) == 0 && SDL_GetError());
 	int flags = IMG_INIT_JPG | IMG_INIT_PNG | IMG_INIT_TIF | IMG_INIT_WEBP;
 	assert(IMG_Init(flags) & flags);
+	assert(SDL_GetCurrentDisplayMode(0, &displayMode) == 0 && SDL_GetError());
 
 	readSettings(&dimx, &dimy);
-
 	win = SDL_CreateWindow("Image viewer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 		dimx, dimy, SDL_WINDOW_RESIZABLE);
 	rend = SDL_CreateRenderer(win, 0, SDL_RENDERER_ACCELERATED);
@@ -108,9 +107,9 @@ void App::loadImage()
 
 void App::onResize()
 {
+	bool mustWrite = true;
 	SDL_Surface *screenSurface = SDL_GetWindowSurface(win);
 	SDL_GetClipRect(screenSurface, &screenRect);
-
 	float proportion;
 	for (int i = 0; i > -20; --i) {
 		proportion = (float)(originalRect.w + (resizeFactor * i)) / (float)originalRect.w;
@@ -122,7 +121,16 @@ void App::onResize()
 	}
 	zoomFactor = minZoomFactor;
 	centerToScreen();
-	writeSettings(screenRect.w, screenRect.h);
+	if (screenRect.x + screenRect.w >= displayMode.w || screenRect.y + screenRect.h >= displayMode.h) {
+		mustWrite = false;
+	}
+	if (mustWrite) {
+		writeSettings(screenRect.w, screenRect.h);
+	}
+#ifdef _DEBUG
+	cout << screenRect.w << " - " << screenRect.h << endl;
+#endif // _DEBUG
+
 	somethingChanged = true;
 }
 
