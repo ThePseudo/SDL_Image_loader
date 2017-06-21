@@ -55,8 +55,7 @@ void App::initSDL()
 	int flags = IMG_INIT_JPG | IMG_INIT_PNG | IMG_INIT_TIF | IMG_INIT_WEBP;
 	assert(IMG_Init(flags) & flags);
 	assert(SDL_GetCurrentDisplayMode(0, &displayMode) == 0 && SDL_GetError());
-	win = SDL_CreateWindow("Image viewer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-		800, 600, SDL_WINDOW_RESIZABLE);
+	win = SDL_CreateWindow("Image viewer", 0, 0, 0, 0, SDL_WINDOW_RESIZABLE);
 	readSettings();
 	rend = SDL_CreateRenderer(win, 0, SDL_RENDERER_ACCELERATED);
 }
@@ -217,6 +216,7 @@ void App::readSettings()
 	settings.close();
 
 	SDL_SetWindowSize(win, x, y);
+	SDL_SetWindowPosition(win, (displayMode.w - x) / 2, (displayMode.h - y) / 2);
 	if (maximized == "maximized") {
 		SDL_MaximizeWindow(win);
 	}
@@ -334,7 +334,6 @@ int App::run()
 			SDL_RenderCopy(rend, image, nullptr, &imageRect);
 			SDL_RenderPresent(rend);
 			somethingChanged = false;
-			SDL_Delay(1);
 		}
 		else {
 			/*Since the SDL_PollEvent is an implementation of the Windows 
