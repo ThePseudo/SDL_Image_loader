@@ -48,11 +48,13 @@ private:
 	void getResourcePath(const string &subDir = "");
 
 	//app
+	static App *app;
 	bool quit = false;
 	bool somethingChanged = true;
+	bool canChangeImage = true;
+	int mousex, mousey;
 	static vector<string> supportedExtensions;
 	string appPath;
-	static App *app;
 
 	//directory things
 	string currentDir;
@@ -74,8 +76,4 @@ private:
 	int resizeFactor;
 	int minZoomFactor;
 	int maxZoomFactor = 4;
-
-	//various params
-	int mousex, mousey;
-	bool canChangeImage = true;
 };
