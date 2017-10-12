@@ -1,7 +1,10 @@
+#define AppName "Image viewer"
+
 [Setup]
-AppName=Image viewer
-AppVersion=1.0
-DefaultDirName=C:/Program Files (x86)/Image loader
+AppName = {#AppName}
+AppVersion = 1.0
+DefaultDirName = C:/Program Files (x86)/Image loader
+ChangesAssociations = yes
 
 [Dirs]
 Name:"{app}/licenses";

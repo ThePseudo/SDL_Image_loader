@@ -6,9 +6,9 @@
 #include <SDL_image.h>
 
 #ifdef _WIN32
-#define SEPARATOR '\\'
+#define SEPARATOR L'\\'
 #else
-#define SEPARATOR '/'
+#define SEPARATOR L'/'
 #endif
 
 using namespace std::experimental::filesystem;
@@ -17,21 +17,21 @@ using namespace std;
 class App
 {
 private:
-	App(const char *nomeFile);
+	App(const wchar_t *nomeFile);
 public:
 	~App();
-	static App *getApp(const char *nomeFile = "");
+	static App *getApp(const wchar_t *nomeFile = L"");
 	int run();
 
 
 	//getters
 	inline SDL_Renderer *getRenderer() { return rend; }
 	inline SDL_Window *getWindow() { return win; }
-	inline string getAppPath() { return appPath; }
+	inline wstring getAppPath() { return appPath; }
 
 private:
 	void initSDL();
-	void setDirectory(const char * nomeFile);
+	void setDirectory(const wchar_t * nomeFile);
 	void loadImage();
 	void detectFiles();
 	void centerToScreen();
@@ -44,24 +44,24 @@ private:
 	void writeSettings(const bool reset);
 	void readSettings();
 	//utils
-	string lowerString(string s);
-	void getResourcePath(const string &subDir = "");
+	wstring lowerString(wstring s);
+	void getResourcePath(const wstring &subDir = L"");
 
 	//app
 	static App *app;
 	bool quit = false;
 	bool somethingChanged = true;
 	bool canChangeImage = true;
-	int mousex, mousey;
-	static vector<string> supportedExtensions;
-	string appPath;
+	int mousex = 0, mousey = 0;
+	static vector<wstring> supportedExtensions;
+	wstring appPath;
 
 	//directory things
-	string currentDir;
-	string nomeFile;
+	wstring currentDir;
+	wstring nomeFile;
 	directory_iterator directory;
-	list<string> files;
-	list<string>::iterator curFile;
+	list<wstring> files;
+	list<wstring>::iterator curFile;
 
 	//window and SDL things
 	SDL_Window *win;

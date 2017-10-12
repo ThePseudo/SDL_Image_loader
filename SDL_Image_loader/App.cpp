@@ -6,30 +6,35 @@
 
 App *App::app = nullptr;
 
-vector<string> App::supportedExtensions = {
-	"png",
-	"bmp",
-	"jpg",
-	"gif"
-	"jpeg",
-	"lbm",
-	"pcx",
-	"pnm",
-	"tga",
-	"tiff",
-	"webp",
-	"xcf",
-	"xpm",
-	"xv"
+vector<wstring> App::supportedExtensions = {
+	L"png",
+	L"bmp",
+	L"jpg",
+	L"jpeg",
+	L"gif",
+	L"lbm",
+	L"pcx",
+	L"pnm",
+	L"tga",
+	L"tiff",
+	L"webp",
+	L"xcf",
+	L"xpm",
+	L"xv"
 };
 
 int main(int argc, char *argv[])
 {
-	if (argc < 2) return 0;
-	return App::getApp(argv[1])->run();
+	if (argc < 2) {
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "No file selected", "No image was selected to be shown", nullptr);
+		return 0;
+	}
+	string arg = argv[1];
+	wstring wArg(arg.begin(), arg.end());
+	return App::getApp(wArg.c_str())->run();
 }
 
-App::App(const char *nomeFile)
+App::App(const wchar_t *nomeFile)
 {
 	initSDL();
 	setDirectory(nomeFile);
@@ -41,7 +46,7 @@ App::~App()
 	SDL_Quit();
 }
 
-App *App::getApp(const char *nomeFile)
+App *App::getApp(const wchar_t *nomeFile)
 {
 	if (app == nullptr) {
 		app = new App(nomeFile);
@@ -60,43 +65,47 @@ void App::initSDL()
 	rend = SDL_CreateRenderer(win, 0, SDL_RENDERER_ACCELERATED);
 }
 
-void App::setDirectory(const char * nomeFile)
+void App::setDirectory(const wchar_t * nomeFile)
 {
-	string pathString(nomeFile);
+	wstring pathstring(nomeFile);
 	size_t i;
-	for (i = pathString.length() - 1; i >= 0; --i) {
-		if (pathString.at(i) == SEPARATOR) break;
+	for (i = pathstring.length() - 1; i >= 0; --i) {
+		if (pathstring.at(i) == SEPARATOR) break;
 	}
-	this->nomeFile = pathString.substr(i+1, pathString.length());
-	currentDir = pathString.substr(0, i);
+	this->nomeFile = pathstring.substr(i+1, pathstring.length());
+	currentDir = pathstring.substr(0, i);
 	directory = directory_iterator(currentDir.c_str());
 	detectFiles();
 }
 
 void App::loadImage()
 {
-	string title = "Image viewer - " + this->nomeFile;
+	wstring title = L"Image viewer - " + this->nomeFile;
 	SDL_Surface loadedImage;
-	string path = currentDir + SEPARATOR + nomeFile;
-	string extension = path.substr(path.find_last_of('.'), path.length());
+	wstring path = currentDir + SEPARATOR + nomeFile;
+	wstring extension = path.substr(path.find_last_of('.'), path.length());
 	if (image != nullptr) {
 		SDL_DestroyTexture(image);
 		cout << SDL_GetError();
 	}
+	string temp(path.begin(), path.end());
 	if (lowerString(extension) == "bmp") {
-		loadedImage = *SDL_LoadBMP(path.c_str());
+		loadedImage = *SDL_LoadBMP(temp.c_str());
 	}
 	else {
-		loadedImage = *IMG_Load(path.c_str());
+		loadedImage = *IMG_Load(temp.c_str());
+	}
+	if (&loadedImage == nullptr) {
+		cout << SDL_GetError() << endl;
 	}
 	SDL_GetClipRect(&loadedImage, &imageRect);
 	
 	originalRect = imageRect;
 	resizeFactor = originalRect.w / 10;
-
 	image = SDL_CreateTextureFromSurface(rend, &loadedImage);
 	SDL_FreeSurface(&loadedImage);
-	SDL_SetWindowTitle(win, title.c_str());
+	string tempTitle(title.begin(), title.end());
+	SDL_SetWindowTitle(win, tempTitle.c_str());
 	onResize();
 	onMouseWheel(nullptr);
 	somethingChanged = true;
@@ -110,10 +119,10 @@ void App::onResize()
 	SDL_GetClipRect(screenSurface, &screenRect);
 	float proportion;
 	for (int i = 0; i > -20; --i) {
-		proportion = (float)(originalRect.w + (resizeFactor * i)) / (float)originalRect.w;
+		proportion = static_cast<float>(originalRect.w + (resizeFactor * i)) / (float)originalRect.w;
 		minZoomFactor = i;
 		if (screenRect.w > originalRect.w + (resizeFactor * i) &&
-			screenRect.h > (int)((float)originalRect.h * proportion)) {
+			screenRect.h > static_cast<int>(static_cast<float>(originalRect.h) * proportion)) {
 			break;
 		}
 	}
@@ -146,8 +155,8 @@ void App::fitToScreen()
 {
 	if (imageRect.w <= screenRect.w && imageRect.h <= screenRect.h) {
 		double ratiox, ratioy, minratio;
-		ratiox = (double)(screenRect.w) / (double)(imageRect.w);
-		ratioy = (double)(screenRect.h) / (double)(imageRect.h);
+		ratiox = static_cast<double>(screenRect.w) / static_cast<double>(imageRect.w);
+		ratioy = static_cast<double>(screenRect.h) / static_cast<double>(imageRect.h);
 		minratio = (ratiox > ratioy) ? ratioy : ratiox;
 		imageRect.w = (ratiox == minratio) ? screenRect.w : (int)((double)imageRect.w * (double)minratio);
 		imageRect.h = (ratioy == minratio) ? screenRect.h : (int)((double)imageRect.h * (double)minratio);
@@ -184,7 +193,7 @@ void App::onMouseWheel(SDL_Event *e)
 
 void App::writeSettings(bool reset)
 {
-	string settingsPath = this->appPath + "settings.ini";
+	wstring settingsPath = this->appPath + L"settings.ini";
 	ofstream settingsO(settingsPath.c_str(), ios::out);
 	if (reset) {
 		settingsO << "800 600\nwindowed" << endl;
@@ -204,7 +213,7 @@ void App::readSettings()
 {
 	int x = 800, y = 600;
 	getResourcePath();
-	string settingsPath = this->appPath + "settings.ini";
+	wstring settingsPath = this->appPath + L"settings.ini";
 	ifstream settings(settingsPath.c_str(), ios::in);
 	if (!settings) {
 		writeSettings(true);
@@ -225,13 +234,17 @@ void App::readSettings()
 void App::detectFiles()
 {
 	bool found = false;
-	string temp1, temp2;
+	wstring temp1, temp2;
 	for (auto i = directory; i != directory_iterator(); ++i) {
 		if (!is_directory(i->path())) {
-			temp1 = i->path().extension().string();
+			temp1 = i->path().extension().wstring();
 			for (auto iter = supportedExtensions.begin(); iter != supportedExtensions.end(); ++iter) {
-				if (lowerString(i->path().extension().string()) == (string)("." + *iter)) {
-					files.push_back(i->path().filename().string());
+				if (lowerString(i->path().extension().wstring()) == (wstring)(L"." + *iter)) {
+					wstring nameFile = i->path().filename().wstring();
+					files.push_back(nameFile);
+#ifdef _DEBUG
+					cout << nameFile << endl;
+#endif
 					break;
 				}
 			}
@@ -252,10 +265,10 @@ void App::centerToScreen()
 		fitToScreen();
 	}
 	if (imageRect.w - imageRect.x < screenRect.w) {
-		imageRect.x = (int)((float)(screenRect.w - imageRect.w) / 2.0f);
+		imageRect.x = static_cast<int>(static_cast<float>(screenRect.w - imageRect.w) / 2.0f);
 	}
 	else if (imageRect.h - imageRect.y < screenRect.h) {
-		imageRect.y = (int)((float)(screenRect.h - imageRect.h) / 2.0f);
+		imageRect.y = static_cast<int>(static_cast<float>(screenRect.h - imageRect.h) / 2.0f);
 	}
 }
 
@@ -345,33 +358,28 @@ int App::run()
 			then, when everything is static, the program doesn't need any message to be peeked,
 			so I emulate the GetMessage call by slowing down the PeekMessage.
 			*/
-			SDL_Delay(50);
+			SDL_Delay(25);
 		}
 	}
 	return 0;
 }
 
-string App::lowerString(string s)
+wstring App::lowerString(wstring s)
 {
 	for (unsigned i = 0; i < s.length(); ++i) {
-		if(s[i] <= 'Z' && s[i] >= 'A')
-			s[i] = s[i] + 'a' - 'A';
+		if(s[i] <= L'Z' && s[i] >= L'A')
+			s[i] = s[i] + L'a' - L'A';
 	}
 	return s;
 }
 
-void App::getResourcePath(const string &subDir)
+void App::getResourcePath(const wstring &subDir)
 {
-	string baseRes;
-	assert(baseRes.empty());
-	char *basePath = SDL_GetBasePath();
-	if (basePath)
-	{
-		baseRes = basePath;
-		SDL_free(basePath);
-	}
-	size_t pos = baseRes.rfind("bin");
+	string basePath = SDL_GetBasePath();
+	wstring baseRes(basePath.begin(), basePath.end());
+
+	size_t pos = baseRes.rfind(L"bin");
 		baseRes = baseRes.substr(0, pos);
-	string filePath = subDir.empty() ? baseRes : baseRes + subDir + SEPARATOR;
+	wstring filePath = subDir.empty() ? baseRes : baseRes + subDir + SEPARATOR;
 	appPath = filePath;
 }
