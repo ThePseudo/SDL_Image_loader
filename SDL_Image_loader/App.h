@@ -53,6 +53,7 @@ private:
 	bool somethingChanged = true;
 	bool canChangeImage = true;
 	int mousex = 0, mousey = 0;
+	double angle = 0.0f;
 	static vector<wstring> supportedExtensions;
 	wstring appPath;
 

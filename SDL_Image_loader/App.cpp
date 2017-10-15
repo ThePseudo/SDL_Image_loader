@@ -108,6 +108,7 @@ void App::loadImage()
 	SDL_SetWindowTitle(win, tempTitle.c_str());
 	onResize();
 	onMouseWheel(nullptr);
+	angle = 0.0f;
 	somethingChanged = true;
 }
 
@@ -274,6 +275,9 @@ void App::centerToScreen()
 
 void App::fitBoundaries()
 {
+	if ((angle > 45 && angle < 135) || (angle > 225 && angle < 335)) {
+		return;
+	}
 	if (imageRect.x > screenRect.x) {
 		imageRect.x = screenRect.x;
 	}
@@ -299,6 +303,16 @@ int App::run()
 
 		case SDL_KEYDOWN:
 			switch(e.key.keysym.sym) {
+			case SDLK_a:
+				angle += 270.0f;
+				if (angle > 360) angle -= 360;
+				somethingChanged = true;
+				break;
+			case SDLK_d:
+				angle += 90.0f;
+				if (angle > 360) angle -= 360;
+				somethingChanged = true;
+				break;
 			case SDLK_LEFT:
 				if (canChangeImage) {
 					if (curFile != files.begin()) {
@@ -344,7 +358,7 @@ int App::run()
 		}
 		if (somethingChanged) {
 			SDL_RenderClear(rend);
-			SDL_RenderCopy(rend, image, nullptr, &imageRect);
+			SDL_RenderCopyEx(rend, image, nullptr, &imageRect, angle, nullptr, SDL_FLIP_NONE);
 			SDL_RenderPresent(rend);
 			somethingChanged = false;
 		}
