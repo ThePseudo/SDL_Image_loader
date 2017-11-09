@@ -36,9 +36,12 @@ int main(int argc, char *argv[])
 
 App::App(const wchar_t *nomeFile)
 {
+	images.resize(3);
+	imageNames.resize(3);
+	imageRects.resize(3);
 	initSDL();
 	setDirectory(nomeFile);
-	loadImage();
+	loadImages();
 }
 
 App::~App()
@@ -78,16 +81,25 @@ void App::setDirectory(const wchar_t * nomeFile)
 	detectFiles();
 }
 
-void App::loadImage()
+void App::loadImages()
 {
-	wstring title = L"Image viewer - " + this->nomeFile;
+	updateTitle();
+	prevImageTask = create_task([this]() {
+		loadImage(prev_image);
+	});
+	nextImageTask = create_task([this]() {
+		loadImage(next_image);
+	});
+	loadImage(current_image);
+	resetSize();
+}
+
+void App::loadImage(int index)
+{
+	destroyImage(index);
 	SDL_Surface loadedImage;
-	wstring path = currentDir + SEPARATOR + nomeFile;
+	wstring path = currentDir + SEPARATOR + *imageNames[index];
 	wstring extension = path.substr(path.find_last_of('.'), path.length());
-	if (image != nullptr) {
-		SDL_DestroyTexture(image);
-		cout << SDL_GetError();
-	}
 	string temp(path.begin(), path.end());
 	if (lowerString(extension) == "bmp") {
 		loadedImage = *SDL_LoadBMP(temp.c_str());
@@ -98,18 +110,63 @@ void App::loadImage()
 	if (&loadedImage == nullptr) {
 		cout << SDL_GetError() << endl;
 	}
-	SDL_GetClipRect(&loadedImage, &imageRect);
-	
-	originalRect = imageRect;
-	resizeFactor = originalRect.w / 10;
-	image = SDL_CreateTextureFromSurface(rend, &loadedImage);
+	images[index] = SDL_CreateTextureFromSurface(rend, &loadedImage);
+	SDL_GetClipRect(&loadedImage, &imageRects[index]);
 	SDL_FreeSurface(&loadedImage);
-	string tempTitle(title.begin(), title.end());
-	SDL_SetWindowTitle(win, tempTitle.c_str());
-	onResize();
-	onMouseWheel(nullptr);
-	angle = 0.0f;
-	somethingChanged = true;
+}
+
+void App::nextImage()
+{
+	nextImageTask.wait();
+	if (canChangeImage) {
+		imageNames[prev_image] = imageNames[current_image];
+		imageNames[current_image] = imageNames[next_image];
+		imageNames[next_image]++;
+		if (imageNames[next_image] == files.end()) {
+			imageNames[next_image] = files.begin();
+		}
+		nomeFile = *imageNames[current_image];
+		updateTitle();
+		destroyImage(prev_image);
+		images[prev_image] = images[current_image];
+		images[current_image] = images[next_image];
+		imageRects[prev_image] = imageRects[current_image];
+		imageRects[current_image] = imageRects[next_image];
+		nextImageTask = create_task([this]() {
+			images[next_image] = nullptr;
+			loadImage(next_image);
+		});
+		resetSize();
+		canChangeImage = false;
+		somethingChanged = true;
+	}
+}
+
+void App::prevImage()
+{
+	prevImageTask.wait();
+	if (canChangeImage) {
+		imageNames[next_image] = imageNames[current_image];
+		imageNames[current_image] = imageNames[prev_image];
+		imageNames[prev_image]--;
+		if (imageNames[prev_image] == files.begin()) {
+			imageNames[prev_image] = files.end()--;
+		}
+		nomeFile = *imageNames[current_image];
+		updateTitle();
+		destroyImage(next_image);
+		images[next_image] = images[current_image];
+		images[current_image] = images[prev_image];
+		imageRects[next_image] = imageRects[current_image];
+		imageRects[current_image] = imageRects[prev_image];
+		prevImageTask = create_task([this]() {
+			images[prev_image] = nullptr;
+			loadImage(prev_image);
+		});
+		resetSize();
+		canChangeImage = false;
+		somethingChanged = true;
+	}
 }
 
 void App::onResize()
@@ -143,8 +200,8 @@ void App::onResize()
 void App::onMouseMove(const SDL_Event *e)
 {
 	if (SDL_GetMouseState(0, 0) & SDL_BUTTON(SDL_BUTTON_LEFT)) {
-		imageRect.x += e->motion.x - mousex;
-		imageRect.y += e->motion.y - mousey;
+		imageRects[current_image].x += e->motion.x - mousex;
+		imageRects[current_image].y += e->motion.y - mousey;
 		fitBoundaries();
 		centerToScreen();
 		somethingChanged = true;
@@ -154,15 +211,15 @@ void App::onMouseMove(const SDL_Event *e)
 
 void App::fitToScreen()
 {
-	if (imageRect.w <= screenRect.w && imageRect.h <= screenRect.h) {
+	if (imageRects[current_image].w <= screenRect.w && imageRects[current_image].h <= screenRect.h) {
 		double ratiox, ratioy, minratio;
-		ratiox = static_cast<double>(screenRect.w) / static_cast<double>(imageRect.w);
-		ratioy = static_cast<double>(screenRect.h) / static_cast<double>(imageRect.h);
+		ratiox = static_cast<double>(screenRect.w) / static_cast<double>(imageRects[current_image].w);
+		ratioy = static_cast<double>(screenRect.h) / static_cast<double>(imageRects[current_image].h);
 		minratio = (ratiox > ratioy) ? ratioy : ratiox;
-		imageRect.w = (ratiox == minratio) ? screenRect.w : (int)((double)imageRect.w * (double)minratio);
-		imageRect.h = (ratioy == minratio) ? screenRect.h : (int)((double)imageRect.h * (double)minratio);
-		imageRect.x = (screenRect.w > imageRect.w) ? (int)((screenRect.w - imageRect.w) / 2.0f) : 0;
-		imageRect.y = (screenRect.h > imageRect.h) ? (int)((screenRect.h - imageRect.h) / 2.0f) : 0;
+		imageRects[current_image].w = (ratiox == minratio) ? screenRect.w : (int)((double)imageRects[current_image].w * (double)minratio);
+		imageRects[current_image].h = (ratioy == minratio) ? screenRect.h : (int)((double)imageRects[current_image].h * (double)minratio);
+		imageRects[current_image].x = (screenRect.w > imageRects[current_image].w) ? (int)((screenRect.w - imageRects[current_image].w) / 2.0f) : 0;
+		imageRects[current_image].y = (screenRect.h > imageRects[current_image].h) ? (int)((screenRect.h - imageRects[current_image].h) / 2.0f) : 0;
 	}
 }
 
@@ -182,9 +239,9 @@ void App::onMouseWheel(SDL_Event *e)
 	}
 	if (zoomFactor > maxZoomFactor) --zoomFactor;
 	if (zoomFactor < minZoomFactor) ++zoomFactor;
-	imageRect.w = originalRect.w + (resizeFactor * zoomFactor);
-	proportion = (float)imageRect.w / (float)originalRect.w;
-	imageRect.h = (int)((float)originalRect.h * proportion);
+	imageRects[current_image].w = originalRect.w + (resizeFactor * zoomFactor);
+	proportion = (float)imageRects[current_image].w / (float)originalRect.w;
+	imageRects[current_image].h = (int)((float)originalRect.h * proportion);
 	if(e != nullptr) e->wheel.y = 0;
 
 	fitBoundaries();
@@ -251,8 +308,12 @@ void App::detectFiles()
 			}
 		}
 	}
-	for (curFile = files.begin(); curFile != files.end(); ++curFile) {
-		if (*curFile == nomeFile) {
+	for (imageNames[current_image] = files.begin(); imageNames[current_image] != files.end(); ++imageNames[current_image]) {
+		if (*imageNames[current_image] == nomeFile) {
+			imageNames[prev_image] = --imageNames[current_image];
+			++imageNames[current_image];
+			imageNames[next_image] = ++imageNames[current_image];
+			--imageNames[current_image];
 			found = true;
 			break;
 		}
@@ -262,14 +323,14 @@ void App::detectFiles()
 
 void App::centerToScreen()
 {
-	if (imageRect.w - imageRect.x <= screenRect.w && imageRect.h - imageRect.h <= screenRect.h) {
+	if (imageRects[current_image].w - imageRects[current_image].x <= screenRect.w && imageRects[current_image].h - imageRects[current_image].h <= screenRect.h) {
 		fitToScreen();
 	}
-	if (imageRect.w - imageRect.x < screenRect.w) {
-		imageRect.x = static_cast<int>(static_cast<float>(screenRect.w - imageRect.w) / 2.0f);
+	if (imageRects[current_image].w - imageRects[current_image].x < screenRect.w) {
+		imageRects[current_image].x = static_cast<int>(static_cast<float>(screenRect.w - imageRects[current_image].w) / 2.0f);
 	}
-	else if (imageRect.h - imageRect.y < screenRect.h) {
-		imageRect.y = static_cast<int>(static_cast<float>(screenRect.h - imageRect.h) / 2.0f);
+	else if (imageRects[current_image].h - imageRects[current_image].y < screenRect.h) {
+		imageRects[current_image].y = static_cast<int>(static_cast<float>(screenRect.h - imageRects[current_image].h) / 2.0f);
 	}
 }
 
@@ -278,16 +339,16 @@ void App::fitBoundaries()
 	if ((angle > 45 && angle < 135) || (angle > 225 && angle < 335)) {
 		return;
 	}
-	if (imageRect.x > screenRect.x) {
-		imageRect.x = screenRect.x;
+	if (imageRects[current_image].x > screenRect.x) {
+		imageRects[current_image].x = screenRect.x;
 	}
-	if (imageRect.y > screenRect.y) {
-		imageRect.y = screenRect.y;
+	if (imageRects[current_image].y > screenRect.y) {
+		imageRects[current_image].y = screenRect.y;
 	}
-	if (imageRect.x + imageRect.w < screenRect.x + screenRect.w)
-		imageRect.x = screenRect.x + screenRect.w - imageRect.w;
-	if (imageRect.y + imageRect.h < screenRect.y + screenRect.h)
-		imageRect.y = screenRect.y + screenRect.h - imageRect.h;
+	if (imageRects[current_image].x + imageRects[current_image].w < screenRect.x + screenRect.w)
+		imageRects[current_image].x = screenRect.x + screenRect.w - imageRects[current_image].w;
+	if (imageRects[current_image].y + imageRects[current_image].h < screenRect.y + screenRect.h)
+		imageRects[current_image].y = screenRect.y + screenRect.h - imageRects[current_image].h;
 }
 
 int App::run()
@@ -314,27 +375,10 @@ int App::run()
 				somethingChanged = true;
 				break;
 			case SDLK_LEFT:
-				if (canChangeImage) {
-					if (curFile != files.begin()) {
-						curFile--;
-						nomeFile = *curFile;
-						loadImage();
-						canChangeImage = false;
-					}
-				}
+				prevImage();
 				break;
 			case SDLK_RIGHT:
-				if (canChangeImage) {
-					curFile++;
-					if (curFile == files.end()) {
-						curFile--;
-					}
-					else {
-						nomeFile = *curFile;
-						loadImage();
-						canChangeImage = false;
-					}
-				}
+				nextImage();
 				break;
 			}
 			break;
@@ -358,7 +402,7 @@ int App::run()
 		}
 		if (somethingChanged) {
 			SDL_RenderClear(rend);
-			SDL_RenderCopyEx(rend, image, nullptr, &imageRect, angle, nullptr, SDL_FLIP_NONE);
+			SDL_RenderCopyEx(rend, images[current_image], nullptr, &imageRects[current_image], angle, nullptr, SDL_FLIP_NONE);
 			SDL_RenderPresent(rend);
 			somethingChanged = false;
 		}
@@ -396,4 +440,28 @@ void App::getResourcePath(const wstring &subDir)
 		baseRes = baseRes.substr(0, pos);
 	wstring filePath = subDir.empty() ? baseRes : baseRes + subDir + SEPARATOR;
 	appPath = filePath;
+}
+
+void App::destroyImage(int index)
+{
+	if (images[index] != nullptr) {
+		SDL_DestroyTexture(images[index]);
+	}
+	images[index] = nullptr;
+}
+
+void App::updateTitle()
+{
+	wstring title = L"Image viewer - " + this->nomeFile;
+	string tempTitle(title.begin(), title.end());
+	SDL_SetWindowTitle(win, tempTitle.c_str());
+}
+
+void App::resetSize()
+{
+	originalRect = imageRects[current_image];
+	resizeFactor = originalRect.w / 10;
+	onResize();
+	onMouseWheel(nullptr);
+	angle = 0.0f;
 }

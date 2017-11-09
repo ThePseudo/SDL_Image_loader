@@ -7,12 +7,20 @@
 
 #ifdef _WIN32
 #define SEPARATOR L'\\'
+#include <ppltasks.h>
 #else
 #define SEPARATOR L'/'
 #endif
 
 using namespace std::experimental::filesystem;
 using namespace std;
+using namespace Concurrency;
+
+enum n_image {
+	prev_image = 0,
+	current_image = 1,
+	next_image = 2
+};
 
 class App
 {
@@ -32,7 +40,10 @@ public:
 private:
 	void initSDL();
 	void setDirectory(const wchar_t * nomeFile);
-	void loadImage();
+	void loadImages();
+	void loadImage(int index);
+	void nextImage();
+	void prevImage();
 	void detectFiles();
 	void centerToScreen();
 	void fitBoundaries();
@@ -46,6 +57,9 @@ private:
 	//utils
 	wstring lowerString(wstring s);
 	void getResourcePath(const wstring &subDir = L"");
+	void destroyImage(int index);
+	void updateTitle();
+	void resetSize();
 
 	//app
 	static App *app;
@@ -62,14 +76,14 @@ private:
 	wstring nomeFile;
 	directory_iterator directory;
 	list<wstring> files;
-	list<wstring>::iterator curFile;
+	vector<list<wstring>::iterator> imageNames;
 
 	//window and SDL things
 	SDL_Window *win;
 	SDL_Renderer *rend;
-	SDL_Texture *image;
+	vector<SDL_Texture *> images;
 	SDL_DisplayMode displayMode;
-	SDL_Rect imageRect;
+	vector<SDL_Rect> imageRects;
 	SDL_Rect originalRect;
 	SDL_Rect screenRect;
 	SDL_Rect oldRect;
@@ -77,4 +91,8 @@ private:
 	int resizeFactor;
 	int minZoomFactor;
 	int maxZoomFactor = 4;
+
+	//Windows tasks
+	Concurrency::task<void> prevImageTask;
+	Concurrency::task<void> nextImageTask;
 };
