@@ -148,9 +148,11 @@ void App::prevImage()
 	if (canChangeImage) {
 		imageNames[next_image] = imageNames[current_image];
 		imageNames[current_image] = imageNames[prev_image];
-		imageNames[prev_image]--;
 		if (imageNames[prev_image] == files.begin()) {
 			imageNames[prev_image] = files.end()--;
+		}
+		else {
+			imageNames[prev_image]--;
 		}
 		nomeFile = *imageNames[current_image];
 		updateTitle();
